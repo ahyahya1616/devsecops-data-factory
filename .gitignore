@@ -39,6 +39,8 @@ ENV/
 
 
 *.md
+!README.md
+!PROJECT_HANDOVER_AND_ARCHITECTURE.md
 
 # Infrastructure repo (tracked independently by https://github.com/ahyahya1616/mlops_infrastructure)
 mlops_infrastructure/
