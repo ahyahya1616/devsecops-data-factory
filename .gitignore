@@ -37,3 +37,12 @@ ENV/
 .idea/
 .vscode/
 
+
+*.md
+
+# Infrastructure repo (tracked independently by https://github.com/ahyahya1616/mlops_infrastructure)
+mlops_infrastructure/
+
+# Kubernetes manifests repo (tracked independently by https://github.com/ahyahya1616/mlops_k8s_manifests)
+mlops_k8s_manifests/
+

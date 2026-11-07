@@ -11,11 +11,14 @@ Security & MLOps Architecture Considerations:
 - Graceful exception handling and deterministic exit codes for container orchestrators.
 """
 
+import datetime
 import logging
+import os
 import sys
 from pathlib import Path
 from typing import List
 
+import boto3
 import pandas as pd
 import yfinance as yf
 
@@ -168,6 +171,38 @@ def persist_to_parquet(df: pd.DataFrame, destination: Path) -> None:
         raise IOError(f"Failed to persist Parquet data: {exc}") from exc
 
 
+def upload_to_s3(file_path: Path, bucket_name: str, s3_key: str) -> None:
+    """
+    Uploads a local file to Amazon S3 via boto3 using IRSA OIDC credentials.
+
+    Args:
+        file_path: Local path to the file to upload.
+        bucket_name: Target Amazon S3 bucket name.
+        s3_key: Destination object key in S3.
+    """
+    if not file_path.exists():
+        raise FileNotFoundError(f"Source file not found for S3 upload: {file_path}")
+
+    logger.info("Initiating upload to S3: s3://%s/%s", bucket_name, s3_key)
+    try:
+        s3_client = boto3.client("s3")
+        s3_client.upload_file(str(file_path), bucket_name, s3_key)
+        logger.info(
+            "Successfully uploaded dataset to s3://%s/%s via IRSA.",
+            bucket_name,
+            s3_key,
+        )
+    except Exception as exc:
+        logger.critical(
+            "Failed to upload file to S3 (s3://%s/%s): %s",
+            bucket_name,
+            s3_key,
+            exc,
+            exc_info=True,
+        )
+        raise IOError(f"S3 persistence error: {exc}") from exc
+
+
 def main() -> None:
     """Entry point for the Secure Financial Data Scraper Agent."""
     logger.info("Starting Secure Financial Data Agent ingestion process...")
@@ -177,7 +212,17 @@ def main() -> None:
             period=HISTORICAL_PERIOD,
         )
         persist_to_parquet(market_data, OUTPUT_FILE_PATH)
-        logger.info("Ingestion pipeline completed successfully.")
+
+        # Upload to Amazon S3 if S3_BUCKET_NAME is configured
+        s3_bucket = os.getenv("S3_BUCKET_NAME", "mlops-financial-data-240797212774-lab")
+        if s3_bucket:
+            timestamp_str = datetime.datetime.now(datetime.timezone.utc).strftime(
+                "%Y%m%d_%H%M%S"
+            )
+            s3_destination_key = f"data/market_data_{timestamp_str}.parquet"
+            upload_to_s3(OUTPUT_FILE_PATH, s3_bucket, s3_destination_key)
+
+        logger.info("Ingestion and cloud persistence pipeline completed successfully.")
         sys.exit(0)
     except Exception as err:
         logger.critical("Pipeline aborted due to unrecoverable error: %s", err)
