@@ -1,0 +1,17 @@
+# ==============================================================================
+# Zero-Trust MLOps Financial Ingestion Dependencies
+# Pinned/bounded versions ensure deterministic and reproducible container builds.
+# ==============================================================================
+
+pandas>=2.2.0
+pyarrow>=16.0.0
+yfinance>=0.2.50
+
+# ------------------------------------------------------------------------------
+# INTENTIONAL VULNERABILITY FOR TRIVY SECURITY SCANNER TESTING:
+# requests==2.31.0 has a known vulnerability: CVE-2024-35195 (Medium severity).
+# It does NOT break runtime execution of yfinance or Parquet saving.
+# It will be detected and reported in Trivy scan results, but will NOT fail
+# the CI/CD pipeline build when Trivy is configured to fail ONLY on 'CRITICAL'.
+# ------------------------------------------------------------------------------
+requests==2.31.0

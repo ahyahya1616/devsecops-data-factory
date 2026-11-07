@@ -1,0 +1,100 @@
+name: Zero-Trust MLOps CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+# Principle of Least Privilege: Restrict default repository GITHUB_TOKEN permissions
+permissions:
+  contents: read
+
+jobs:
+  build-and-scan:
+    name: Build, Scan & Publish Financial Data Agent
+    runs-on: ubuntu-latest
+
+    env:
+      IMAGE_NAME: financial-data-agent
+      IMAGE_TAG: ${{ github.sha }}
+
+    steps:
+      # ========================================================================
+      # Step 1: Checkout Source Code
+      # ========================================================================
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # ========================================================================
+      # Step 2: Build Docker Image
+      # ========================================================================
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Secure Docker Image
+        run: |
+          docker build \
+            --file Dockerfile \
+            --tag ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} \
+            --tag ${{ env.IMAGE_NAME }}:latest \
+            .
+
+      # ========================================================================
+      # Step 3: Run Aqua Security Trivy Vulnerability Scanner
+      # Fails pipeline build ONLY when CRITICAL vulnerabilities are identified.
+      # Known non-breaking CVEs (e.g., Medium/High) will be surfaced in the report
+      # without blocking the deployment pipeline.
+      # ========================================================================
+      - name: Run Trivy Container Security Scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: '${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}'
+          scan-type: 'image'
+          format: 'table'
+          vuln-type: 'os,library'
+          severity: 'CRITICAL'
+          exit-code: '1'
+          ignore-unfixed: false
+
+      # ========================================================================
+      # Step 4: Push to Amazon ECR (Placeholder)
+      # Configure AWS credentials and ECR registry details prior to enabling.
+      # ========================================================================
+      - name: Push to Amazon ECR
+        run: |
+          echo "=================================================================="
+          echo "Placeholder: Push to Amazon Elastic Container Registry (ECR)"
+          echo "Image ready for promotion: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
+          echo "=================================================================="
+          echo "To activate ECR publishing:"
+          echo "1. Configure AWS OIDC IAM Role or access keys."
+          echo "2. Add 'aws-actions/configure-aws-credentials@v4'."
+          echo "3. Add 'aws-actions/amazon-ecr-login@v2'."
+          echo "4. Tag and push to \${{ steps.login-ecr.outputs.registry }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
+
+      # # ----------------------------------------------------------------------
+      # # Production AWS ECR Deployment Implementation (Ready to uncomment):
+      # # ----------------------------------------------------------------------
+      # - name: Configure AWS Credentials (OIDC - Recommended for Zero-Trust)
+      #   uses: aws-actions/configure-aws-credentials@v4
+      #   with:
+      #     role-to-assume: arn:aws:iam::<ACCOUNT_ID>:role/GitHubActionsECRRole
+      #     aws-region: us-east-1
+      #
+      # - name: Log in to Amazon ECR
+      #   id: login-ecr
+      #   uses: aws-actions/amazon-ecr-login@v2
+      #
+      # - name: Tag and Push Image to Amazon ECR
+      #   env:
+      #     ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+      #     ECR_REPOSITORY: financial-data-agent
+      #   run: |
+      #     docker tag ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} $ECR_REGISTRY/$ECR_REPOSITORY:${{ env.IMAGE_TAG }}
+      #     docker tag ${{ env.IMAGE_NAME }}:latest $ECR_REGISTRY/$ECR_REPOSITORY:latest
+      #     docker push $ECR_REGISTRY/$ECR_REPOSITORY:${{ env.IMAGE_TAG }}
+      #     docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+

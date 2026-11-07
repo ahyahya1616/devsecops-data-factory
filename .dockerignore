@@ -1,0 +1,30 @@
+# Git metadata
+.git
+.gitignore
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local artifacts and data outputs
+*.parquet
+*.csv
+*.log
+
+# Environment and sensitive configuration
+.env
+.env.*
+.venv/
+venv/
+ENV/
+
+# CI and IDE
+.github/
+.vscode/
+.idea/
+
